@@ -1,0 +1,212 @@
+﻿<!DOCTYPE html>
+
+<html ng-app="diskBrowserApp">
+<head>
+    <title>Hello World</title>
+    <link rel="stylesheet" type="text/css" href="css/styles.css">
+    <script src="Libraries/angular.js"></script>
+    <script>
+	var mb=1024*1024;
+        // Модель
+var model =new Object();
+       model.smallSizeFiles=0;
+       model.middleSizeFiles=0;
+       model.bigSizeFiles=0;
+       model.currentPath="";
+	   model.rootFolder="";
+       model.drives=[];
+       model.driveCounter=0;
+
+        var diskBrowserApp = angular.module("diskBrowserApp", []);
+
+        diskBrowserApp.controller("DiskBrowserCtrl", function ($scope, $http) 
+		{
+            
+			$scope.mb = mb;
+			$scope.lowBound = 10;
+			$scope.highBound = 100;
+            
+			$scope.smallSizeFiles = model.smallSizeFiles;
+			$scope.middleSizeFiles = model.middleSizeFiles;
+			$scope.bigSizeFiles = model.bigSizeFiles;
+			
+			$scope.content={};
+			
+			$scope.drives=model.drives;
+			$scope.driveCounter=model.driveCounter;
+			
+			$scope.rootFolderFlag=true;
+			$scope.rootFolder="";
+			$scope.currentDrive="";
+			$scope.currentPath = model.currentPath;
+			$scope.folderContent = "";
+
+//**************************************************************************************************************
+			$scope.getDrives = function()
+				{
+					$http.get('/api/Folder/GetDrives')
+					.success(function(data) 
+						{
+							var count = Object.keys(data).length;
+                                                        $scope.driveCounter=count;
+							$scope.drives=data;
+					
+							if (count>0) {
+								$scope.currentDrive=data[0]._name;
+								$scope.currentPath=data[0]._name;
+								model.currentPath=$scope.currentPath;                            
+								$scope.getFolderData($scope.currentPath,"");
+							  };
+
+						})
+					.error(function(data) 
+						{
+							$scope.message="An error occured with the Web API during obtainig hard drives info";
+						});
+
+				};
+//**************************************************************************************************************
+$scope.getParentFolder = function(folderPath)
+				{
+					var rootFolder=folderPath.toString();
+					rootFolder=rootFolder.substr(0,rootFolder.lastIndexOf('\\')+1);	
+					
+					var trailSlash=rootFolder.lastIndexOf('\\');
+					if  ((trailSlash>2)&(trailSlash==rootFolder.length-1))
+					 {rootFolder=rootFolder.substr(0,trailSlash)};
+					$scope.getFolderData(rootFolder,"");
+				}
+//**************************************************************************************************************				
+		 	$scope.getFolderData = function(rootFolderPath, folderPath)
+				{
+					$scope.currentPath=rootFolderPath+folderPath+'\\';  //folder
+
+					$http.post('/api/Folder/Info',  JSON.stringify(String(rootFolderPath+folderPath)),     
+							{ headers: {'Content-Type': 'application/json'}})
+					.success(function(data) 
+						{
+							if (data!=null)
+							{
+								var count = Object.keys(data).length;
+								var rootFolder=$scope.currentPath.toString();
+								$scope.rootFolder=rootFolder.substr(0,rootFolder.lastIndexOf('\\')+1);								
+
+								$scope.currentPath=data.CurrentPath; 
+								if (($scope.currentPath)!=($scope.currentDrive)) {$scope.rootFolderFlag=false;}
+								else $scope.rootFolderFlag=true;
+
+								$scope.mb = mb;
+								$scope.smallSizeFiles = data.SmallSizeFiles;
+								$scope.middleSizeFiles = data.MiddleSizeFiles;
+								$scope.bigSizeFiles = data.BigSizeFiles;
+								$scope.folderContent=data.entries;
+							}
+						})
+					.error(function(data) 
+						{
+							$scope.message="An error occured with the Web API during obtainig folder info";
+						});
+				};
+
+
+//**************************************************************************************************************
+			$scope.currentDriveChanged = function(currentDrive)
+				{
+					$scope.currentDrive=currentDrive;
+					$scope.getFolderData(currentDrive,"");
+				};
+
+			$scope.downloadFile = function (currentPath,fileName) 
+			{
+			
+				$http.post('api/Folder/DownloadFile', JSON.stringify(String($scope.currentPath+'\\'+fileName)),
+					{responseType: 'arraybuffer'})
+				.success(function (data, status, headers) 
+				{
+					headers = headers(); 
+					var filename = headers['x-filename'];
+					var contentType = headers['content-type'];
+					var linkElement = document.createElement('a');
+					try 
+					{
+						var blob = new Blob([data], { type: contentType });
+						var url = window.URL.createObjectURL(blob);
+						linkElement.setAttribute('href', url);
+						linkElement.setAttribute("download", fileName);
+						var clickEvent = new MouseEvent("click", 
+						{
+							"view": window,
+							"bubbles": true,
+							"cancelable": false
+						});
+						linkElement.dispatchEvent(clickEvent);
+					} 
+					catch (ex) 
+					{
+						console.log(ex);
+					}
+    }).error(function (data) {
+        console.log(data);
+    });
+};
+			
+                        $scope.getDrives();
+
+        });
+    </script>
+</head>
+
+
+<body ng-controller="DiskBrowserCtrl">
+ <table>
+
+<tr class="rangeHeader"> 
+<td> Less{{lowBound}}Mb </td>
+<td> {{lowBound}}Mb-{{highBound}}Mb </td>
+<td> More {{highBound}}Mb </td>
+</tr>
+<tr>
+<td> {{smallSizeFiles}} </td>
+<td> {{middleSizeFiles}} </td>
+<td> {{bigSizeFiles}} </td>
+</tr>
+</table>
+ <div ng-switch on="driveCounter">
+  <h3>
+	<div ng-switch-when="0">
+	    There aren't accessible hard drives
+	</div>
+	<div ng-switch-default>
+	<h2>
+	    Hard drives ({{driveCounter}}):
+	</h2>
+		<form>
+		  <span ng-repeat="drive in drives">                                                                                
+			<input name="currentDrive" type="radio" ng-model="$parent.currentDrive" ng-change="currentDriveChanged(drive._name)" value={{drive._name}}>{{drive._name.substring(0,2)}}
+		 </span>
+		</form>
+	</div>
+  </h3>
+
+</div>
+
+    <h2>
+		Current path: {{currentPath}}
+	</br>
+		<span ng-if="!rootFolderFlag">
+			<h2> <a href="" ng-click="getParentFolder(currentPath)" class="folder"> .. </a>   </h2>
+		</span>
+
+    <h3>
+				<div ng-repeat="entry in folderContent">                                                                                
+			<span ng-if="entry.DirFlag">
+				<a href="" ng-click="getFolderData(currentPath,entry.Name)" class="folder">{{entry.Name}}</a>
+			</span>
+			<span ng-if="!entry.DirFlag">
+				<a href="" ng-click="downloadFile(currentPath,entry.Name)" class="file">{{entry.Name}}</a>	
+			</span>
+		</div>
+	</h3>
+
+</body>
+</html>

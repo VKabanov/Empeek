@@ -1,0 +1,35 @@
+tr { 
+height:35px; 
+width:100px; 
+background:Gray; 
+color:white; 
+font-size:120%; 
+text-align:center; }
+
+
+a.file:link	{
+	text-decoration: underline;
+	color: #6699CC; }
+a.file:visited	{
+	text-decoration: underline;
+	color: #336699; }
+a.file:active	{
+	text-decoration: underline;
+	color: red; }
+a.file:hover	{
+	text-decoration: underline;
+	color: #ff0000; }
+
+
+a.folder:link	{
+	text-decoration: none;
+	color: #6699CC; }
+a.folder:visited	{
+	text-decoration: none;
+	color: #336699; }
+a.folder:active	{
+	text-decoration: none;
+	color: red; }
+a.folder:hover	{
+	text-decoration: underline;
+	color: red; }
